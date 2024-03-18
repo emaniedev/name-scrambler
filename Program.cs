@@ -1,19 +1,81 @@
-﻿using System.Net.WebSockets;
-using System.Reflection.Metadata;
+﻿
+using System.Data.SqlTypes;
 
 internal class Program
 {
-    public class Name
+    public class Name : INullable
     {
         public string text;
-        public char[] letters;
-        public Name[] proposal;
+        public char[] letters = Array.Empty<char>();
+        public string[] used = Array.Empty<string>();
+        public Name?[] proposal = Array.Empty<Name?>();
+
+        public bool IsNull => throw new NotImplementedException();
     }
 
     public static Name[] Data = Array.Empty<Name>();
-    private static void Main(string[] args)
+    readonly static string[] names = { "EYRA", "AILEN", "ROCIO", "EDGAR", "MAKI" };
+    public static Name? SearchPermutations(Name? n)
     {
-        string[] names = { "EYRA", "AILEN", "ROCIO", "EDGAR", "MAKI" };
+        Name? existing = null;
+        for (int k = 0; k < names.Length; k++)
+        {
+            var uniqueLetters = n.letters.Distinct().ToArray();
+            Console.WriteLine(new string(uniqueLetters));
+            existing = n.proposal?.FirstOrDefault(p => p.text == names[k]);
+            for (int j = 0; j < uniqueLetters.Length; j++)
+            {
+                var letter = uniqueLetters[j];
+                if (!n.used.Contains(names[k]))
+                {
+                    var toSearch = names[k].ToCharArray();
+                    if (toSearch.Contains(letter))
+                    {
+                        existing ??= new()
+                        {
+                            text = names[k],
+                            letters = names[k].ToCharArray().Concat(n.letters).ToArray(),
+                        };
+                        existing.used = n.used.Append(existing.text).ToArray();
+                    }
+                }
+            }
+            if (existing is not null)
+            {
+                existing = SearchPermutations(existing);
+                n.proposal = n.proposal?.Append(existing).ToArray();
+            }
+        }
+        return n;
+    }
+    public static void PrintData(Name[] ns, int padding = 0)
+    {
+        string pad = "";
+        for (int i = 0; i < padding; i++)
+        {
+            pad += "\t";
+        }
+        foreach (var n in ns)
+        {
+            Console.WriteLine($"{pad}{n.text}");
+            Console.WriteLine($"{pad} Propuestas: {n.proposal.Length}");
+            Console.WriteLine($"{pad} letters: {new string(n.letters)}");
+            Console.WriteLine($"{pad} used: {new string(string.Join(",", n.used))}");
+
+            PrintData(n.proposal, ++padding);
+            --padding;
+
+            // foreach (var p in n.proposal)
+            // {
+            //     Console.WriteLine($"{pad}  - {p.text} with {new string(p.letters)}");
+            // }
+
+        }
+    }
+    public static void Main(string[] args)
+    {
+        ArgumentNullException.ThrowIfNull(args);
+
 
         for (int i = 0; i < names.Length; i++)
         {
@@ -21,58 +83,16 @@ internal class Program
             {
                 text = names[i],
                 letters = names[i].ToCharArray(),
-                proposal = Array.Empty<Name>()
             };
-            Console.WriteLine($"Procesando {name.text}");
-            Console.WriteLine($" Propuestas: {name.proposal.Length}");
-            for (int j = 0; j < name.letters.Length; j++)
-            {
-                Console.WriteLine($" +++++++++++++++++++++++++++++++");
-                var letter = name.letters[j];
-                for (int k = 0; k < names.Length; k++)
-                {
-                    if (k != i)
-                    {
-                        var toSearch = names[k].ToCharArray();
-                        Console.WriteLine($"  Procesando letra {letter} sobre {names[k]}");
-                        if (toSearch.Contains(letter))
-                        {
-                            Name existing = name.proposal.FirstOrDefault(p => p.text == names[k]);
-                            if (existing is null)
-                            {
-                                existing = new Name();
-                                Console.WriteLine($" No hay propuesta, se crea {names[k]}");
-                                existing.text = names[k];
-                                existing.letters = Array.Empty<char>();
-                                name.proposal = name.proposal.Append(existing).ToArray();
-                            }
-                            existing.letters = existing.letters.Append(letter).ToArray();
-                        }
+            name.used = name.used.Append(name.text).ToArray();
 
-                    }
-                }
-            }
-
-            Console.WriteLine($" Propuestas: {name.proposal.Length}");
-            Console.WriteLine($"Procesado {name.text}");
+            SearchPermutations(name);
 
             Data = Data.Append(name).ToArray();
 
             Console.WriteLine($"===============================");
         }
 
-
-        foreach (var n in Data)
-        {
-            Console.WriteLine($"{n.text}");
-            Console.WriteLine($" Propuestas: {n.proposal.Length}");
-
-            foreach (var p in n.proposal)
-            {
-                Console.WriteLine($"  - {p.text} in {new string(p.letters)}");
-            }
-
-        }
-
+        PrintData(Data);
     }
 }
