@@ -5,50 +5,70 @@ internal class Program
 {
     public class Name : INullable
     {
-        public string text;
-        public char[] letters = Array.Empty<char>();
+        public string text = "";
+        public char[][] letters = Array.Empty<char[]>();
+        public char usedLetter;
         public string[] used = Array.Empty<string>();
         public Name?[] proposal = Array.Empty<Name?>();
+        public char[] board;
 
         public bool IsNull => throw new NotImplementedException();
     }
-
+    public static int counter = 0;
+    public static int maxComposition = 0;
     public static Name[] Data = Array.Empty<Name>();
-    readonly static string[] names = { "EYRA", "AILEN", "ROCIO", "EDGAR", "MAKI" };
-    public static Name? SearchPermutations(Name? n)
+    // readonly static string[] names = { "EYRA", "AILEN", "MAKI", "ROCIO", "EDGAR" };
+    readonly static string[] names = { "EYRA", "AILEN" };
+
+    public static Name? SearchPermutations(ref char[] board, Name? n)
     {
         Name? existing = null;
+        if (n?.used.Length == names.Length)
+        {
+            counter++;
+        }
         for (int k = 0; k < names.Length; k++)
         {
-            var uniqueLetters = n.letters.Distinct().ToArray();
-            Console.WriteLine(new string(uniqueLetters));
-            existing = n.proposal?.FirstOrDefault(p => p.text == names[k]);
-            for (int j = 0; j < uniqueLetters.Length; j++)
+            for (int j = 0; j < n?.letters.Length; j++)
             {
-                var letter = uniqueLetters[j];
-                if (!n.used.Contains(names[k]))
+                for (int i = 0; i < n.letters[j].Length; i++)
                 {
-                    var toSearch = names[k].ToCharArray();
-                    if (toSearch.Contains(letter))
+
+                    var letter = n.letters[j][i];
+                    existing = n.proposal?.FirstOrDefault(p => p?.text == names[k] && p.usedLetter == letter && p.used.Contains(names[k]));
+                    if (!n.used.Contains(names[k]))
                     {
-                        existing ??= new()
+                        // TODO: Revisar que la letra esté en los 2 arrays de nombres que se comparan.
+                        // EYRA, AILEN
+                        // ^        ^ 
+                        var toSearch = names[k].ToCharArray();
+                        if (toSearch.Contains(letter) && n.letters[j].Contains(letter))
                         {
-                            text = names[k],
-                            letters = names[k].ToCharArray().Concat(n.letters).ToArray(),
-                        };
-                        existing.used = n.used.Append(existing.text).ToArray();
+                            existing = new()
+                            {
+                                text = names[k],
+                                // letters = n.letters.Append(names[k].ToCharArray()).ToArray(),
+                                usedLetter = letter
+                            };
+                            var currentNameWOLetter = DeleteWithArrayCopy(names[k].ToCharArray(), letter);
+                            var currentLettersWOLetter = DeleteWithArrayCopy(n.letters[j], n.letters[j][i]);
+                            var temp = DeleteWithArrayCopy(n.letters, n.letters[j]);
+                            existing.letters = temp.Append(currentNameWOLetter).Append(currentLettersWOLetter).ToArray();
+                            existing.used = n.used.Append(existing.text).ToArray();
+                            existing.board = board;
+                        }
+                    }
+                    if (existing is not null)
+                    {
+                        existing = SearchPermutations(ref board, existing);
+                        n.proposal = n.proposal?.Append(existing).ToArray();
                     }
                 }
-            }
-            if (existing is not null)
-            {
-                existing = SearchPermutations(existing);
-                n.proposal = n.proposal?.Append(existing).ToArray();
             }
         }
         return n;
     }
-    public static void PrintData(Name[] ns, int padding = 0)
+    public static void PrintData(Name?[] ns, int padding = 0)
     {
         string pad = "";
         for (int i = 0; i < padding; i++)
@@ -57,42 +77,174 @@ internal class Program
         }
         foreach (var n in ns)
         {
-            Console.WriteLine($"{pad}{n.text}");
-            Console.WriteLine($"{pad} Propuestas: {n.proposal.Length}");
-            Console.WriteLine($"{pad} letters: {new string(n.letters)}");
+            Console.WriteLine($"{pad}{n?.text}");
+            Console.WriteLine($"{pad} Propuestas: {n?.proposal.Length}");
+            Console.WriteLine($"{pad} usedLetter: {n?.usedLetter}");
+            Console.Write($"{pad} letters: ");
+            foreach (var p in n?.letters)
+            {
+                if (p is not null)
+                {
+                    Console.Write($"{new string(p)},");
+                }
+            }
+            Console.Write("\n");
+
             Console.WriteLine($"{pad} used: {new string(string.Join(",", n.used))}");
+            PrintBoard(n.board, pad);
 
             PrintData(n.proposal, ++padding);
             --padding;
+        }
+    }
+    public static T[] DeleteWithArrayCopy<T>(T[] inputArray, T elementToRemove)
+    {
+        var indexToRemove = Array.IndexOf(inputArray, elementToRemove);
+        if (indexToRemove < 0)
+        {
+            return inputArray;
+        }
+        var tempArray = new T[inputArray.Length - 1];
+        Array.Copy(inputArray, 0, tempArray, 0, indexToRemove);
+        Array.Copy(inputArray, indexToRemove + 1, tempArray, indexToRemove, inputArray.Length - indexToRemove - 1);
+        return tempArray;
+    }
+    public static T[] DeleteWithArraySegment<T>(T[] inputArray, T elementToRemove)
+    {
+        var indexToRemove = Array.IndexOf(inputArray, elementToRemove);
+        if (indexToRemove < 0)
+        {
+            return inputArray;
+        }
+        T[] tempArray;
+        var segment1 = new ArraySegment<T>(inputArray, 0, indexToRemove);
+        var segment2 = new ArraySegment<T>(inputArray, indexToRemove + 1, inputArray.Length - indexToRemove - 1);
+        tempArray = segment1.Concat(segment2).ToArray();
 
-            // foreach (var p in n.proposal)
-            // {
-            //     Console.WriteLine($"{pad}  - {p.text} with {new string(p.letters)}");
-            // }
+        return tempArray;
+    }
+    public static void ProcessNames(ref char[] board)
+    {
+        for (int i = 0; i < names.Length; i++)
+        {
+            var name = new Name
+            {
+                text = names[i],
+            };
+            name.letters = name.letters.Append(names[i].ToCharArray()).ToArray();
+            name.used = name.used.Append(name.text).ToArray();
+            char[] temp = new char[board.Length];
+            Array.Copy(board, temp, board.Length);
 
+            var posX = maxComposition / 2 - name.text.Length / 2;
+            var posY = maxComposition / 2 - 1;
+            PlaceTopDown(ref temp, name.text, posX, posY);
+
+            int index = new string(temp).IndexOf(names[i]);
+
+            Console.WriteLine($"Encontrado?  index: {index}");
+            if (index < 0)
+            {
+                //try vertical
+                int vIndex = new string(temp).IndexOf(names[i][0]);
+                if (vIndex > 0)
+                {
+                    for (int j = 1; j < names[i].Length; j++)
+                    {
+                        var v = new string(temp).IndexOf(names[i][j]);
+                        if (v < 0) break;
+                        if (v % maxComposition != vIndex % maxComposition) break;
+                    }
+                    index = vIndex;
+                }
+            }
+            Console.WriteLine($"Encontrado?  index: {index}");
+
+
+
+            name.board = temp;
+
+
+            SearchPermutations(ref name.board, name);
+
+            Data = Data.Append(name).ToArray();
+
+            Console.WriteLine($"===============================");
+        }
+    }
+    public static void PlaceLeftToRight(ref char[] board, string n, int pox, int poy)
+    {
+        for (int y = 0; y < board.Length / maxComposition; y++)
+        {
+            if (y == poy)
+            {
+                for (int x = 0; x < maxComposition; x++)
+                {
+                    if (x == pox)
+                    {
+                        int i = x + y * maxComposition;
+                        for (int j = 0; j < n.Length; j++)
+                        {
+                            board[i + j] = n[j];
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+    public static void PlaceTopDown(ref char[] board, string n, int pox, int poy)
+    {
+        for (int y = 0; y < board.Length / maxComposition; y++)
+        {
+            if (y == poy)
+            {
+                for (int x = 0; x < maxComposition; x++)
+                {
+                    if (x == pox)
+                    {
+                        int i = x + y * maxComposition;
+                        for (int j = 0; j < n.Length; j++)
+                        {
+                            board[i + j * maxComposition] = n[j];
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+    public static void PrintBoard(char[] board, string pad)
+    {
+        for (int y = 0; y < board.Length / maxComposition; y++)
+        {
+            Console.Write($"{pad}");
+            for (int x = 0; x < maxComposition; x++)
+            {
+                int i = x + y * maxComposition;
+                Console.Write($"{board[i]}");
+            }
+            Console.Write("\n");
         }
     }
     public static void Main(string[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
 
-
         for (int i = 0; i < names.Length; i++)
         {
-            var name = new Name
-            {
-                text = names[i],
-                letters = names[i].ToCharArray(),
-            };
-            name.used = name.used.Append(name.text).ToArray();
-
-            SearchPermutations(name);
-
-            Data = Data.Append(name).ToArray();
-
-            Console.WriteLine($"===============================");
+            maxComposition += names[i].Length;
         }
 
+
+        var board = new char[maxComposition * maxComposition];
+        for (int i = 0; i < board.Length; i++)
+        {
+            board[i] = '*';
+        }
+        ProcessNames(ref board);
         PrintData(Data);
+
+
     }
 }
