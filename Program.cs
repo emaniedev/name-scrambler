@@ -9,10 +9,17 @@ internal class Program
         public char[][] letters = Array.Empty<char[]>();
         public char usedLetter;
         public string[] used = Array.Empty<string>();
+        public Direction direction;
         public Name?[] proposal = Array.Empty<Name?>();
         public char[] board;
 
         public bool IsNull => throw new NotImplementedException();
+    }
+    public struct Coord
+    {
+        public int x;
+        public int y;
+        public readonly int ToIndex() => x + y * maxComposition;
     }
     public static int counter = 0;
     public static int maxComposition = 0;
@@ -53,6 +60,12 @@ internal class Program
                             var currentNameWOLetter = DeleteWithArrayCopy(names[k].ToCharArray(), letter);
                             var currentLettersWOLetter = DeleteWithArrayCopy(n.letters[j], n.letters[j][i]);
                             var temp = DeleteWithArrayCopy(n.letters, n.letters[j]);
+
+                            char[] tempch = new char[board.Length];
+                            Array.Copy(board, tempch, board.Length);
+                            //TODO: Posicionar el nombre en el tablero
+
+
                             existing.letters = temp.Append(currentNameWOLetter).Append(currentLettersWOLetter).ToArray();
                             existing.used = n.used.Append(existing.text).ToArray();
                             existing.board = board;
@@ -136,40 +149,42 @@ internal class Program
             char[] temp = new char[board.Length];
             Array.Copy(board, temp, board.Length);
 
-            var posX = maxComposition / 2 - name.text.Length / 2;
-            var posY = maxComposition / 2 - 1;
-            PlaceTopDown(ref temp, name.text, posX, posY);
+            PlaceName(ref temp, name.text, Direction.LeftToRight);
 
-            int index = new string(temp).IndexOf(names[i]);
+            var foundName = FindNameIndexAndDirection(temp, name.text);
 
-            Console.WriteLine($"Encontrado?  index: {index}");
-            if (index < 0)
-            {
-                //try vertical
-                int vIndex = new string(temp).IndexOf(names[i][0]);
-                if (vIndex > 0)
-                {
-                    for (int j = 1; j < names[i].Length; j++)
-                    {
-                        var v = new string(temp).IndexOf(names[i][j]);
-                        if (v < 0) break;
-                        if (v % maxComposition != vIndex % maxComposition) break;
-                    }
-                    index = vIndex;
-                }
-            }
-            Console.WriteLine($"Encontrado?  index: {index}");
-
-
+            Console.WriteLine($"foundName.index: {foundName.Item1}");
+            Console.WriteLine($"foundName.direction: {foundName.Item2}");
 
             name.board = temp;
-
 
             SearchPermutations(ref name.board, name);
 
             Data = Data.Append(name).ToArray();
 
             Console.WriteLine($"===============================");
+        }
+    }
+    public static void PlaceName(ref char[] board, string n, Direction direction, Coord? coord = null)
+    {
+        switch (direction)
+        {
+            case Direction.LeftToRight:
+                coord ??= new Coord
+                {
+                    x = maxComposition / 2 - n.Length / 2,
+                    y = maxComposition / 2 - 1
+                };
+                PlaceLeftToRight(ref board, n, coord.x, coord.y);
+                break;
+            case Direction.TopDown:
+                coord ??= new Coord
+                {
+                    x = maxComposition / 2,
+                    y = maxComposition / 2 - n.Length / 2
+                };
+                PlaceTopDown(ref board, n, coord.GetValueOrDefault().x, coord.GetValueOrDefault().y);
+                break;
         }
     }
     public static void PlaceLeftToRight(ref char[] board, string n, int pox, int poy)
@@ -213,6 +228,35 @@ internal class Program
             }
         }
 
+    }
+    public enum Direction
+    {
+        LeftToRight,
+        TopDown
+    }
+
+    public static (int, Direction) FindNameIndexAndDirection(char[] board, string n)
+    {
+        var dir = Direction.LeftToRight;
+        int index = new string(board).IndexOf(n);
+
+        if (index < 0)
+        {
+            //try vertical
+            int vIndex = new string(board).IndexOf(n[0]);
+            if (vIndex > 0)
+            {
+                dir = Direction.TopDown;
+                for (int j = 1; j < n.Length; j++)
+                {
+                    var v = new string(board).IndexOf(n[j]);
+                    if (v < 0) break;
+                    if (v % maxComposition != vIndex % maxComposition) break;
+                }
+                index = vIndex;
+            }
+        }
+        return (index, dir);
     }
     public static void PrintBoard(char[] board, string pad)
     {
