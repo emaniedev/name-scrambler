@@ -11,7 +11,7 @@ internal class Program
         public string[] used = Array.Empty<string>();
         public Direction direction;
         public Name?[] proposal = Array.Empty<Name?>();
-        public char[] board;
+        public char[] board = {};
 
         public bool IsNull => throw new NotImplementedException();
     }
@@ -20,6 +20,13 @@ internal class Program
         public int x;
         public int y;
         public readonly int ToIndex() => x + y * maxComposition;
+        public readonly Coord ToCoord(int i) {
+            return new Coord
+            {
+                x = i % maxComposition,
+                y = (i / maxComposition)
+            };
+        }
     }
     public static int counter = 0;
     public static int maxComposition = 0;
@@ -64,6 +71,11 @@ internal class Program
                             char[] tempch = new char[board.Length];
                             Array.Copy(board, tempch, board.Length);
                             //TODO: Posicionar el nombre en el tablero
+
+                            var (idx, dir) = FindNameIndexAndDirection(tempch, existing.text);
+
+                            Console.WriteLine($"foundName.index: {idx}");
+                            Console.WriteLine($"foundName.direction: {dir}");
 
 
                             existing.letters = temp.Append(currentNameWOLetter).Append(currentLettersWOLetter).ToArray();
@@ -151,11 +163,6 @@ internal class Program
 
             PlaceName(ref temp, name.text, Direction.LeftToRight);
 
-            var foundName = FindNameIndexAndDirection(temp, name.text);
-
-            Console.WriteLine($"foundName.index: {foundName.Item1}");
-            Console.WriteLine($"foundName.direction: {foundName.Item2}");
-
             name.board = temp;
 
             SearchPermutations(ref name.board, name);
@@ -175,7 +182,7 @@ internal class Program
                     x = maxComposition / 2 - n.Length / 2,
                     y = maxComposition / 2 - 1
                 };
-                PlaceLeftToRight(ref board, n, coord.x, coord.y);
+                PlaceLeftToRight(ref board, n, coord.GetValueOrDefault().x, coord.GetValueOrDefault().y);
                 break;
             case Direction.TopDown:
                 coord ??= new Coord
